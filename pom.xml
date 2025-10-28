@@ -117,6 +117,12 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!--  模拟接口API  -->
+        <dependency>
+            <groupId>com.xdq</groupId>
+            <artifactId>xdqapi-client-sdk</artifactId>
+            <version>0.0.1</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -3,10 +3,7 @@ package com.xdq.springbootinit.controller;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xdq.springbootinit.annotation.AuthCheck;
-import com.xdq.springbootinit.common.BaseResponse;
-import com.xdq.springbootinit.common.DeleteRequest;
-import com.xdq.springbootinit.common.ErrorCode;
-import com.xdq.springbootinit.common.ResultUtils;
+import com.xdq.springbootinit.common.*;
 import com.xdq.springbootinit.constant.CommonConstant;
 import com.xdq.springbootinit.exception.BusinessException;
 import com.xdq.springbootinit.model.dto.interfaceInfo.InterfaceInfoAddRequest;
@@ -14,8 +11,10 @@ import com.xdq.springbootinit.model.dto.interfaceInfo.InterfaceInfoQueryRequest;
 import com.xdq.springbootinit.model.dto.interfaceInfo.InterfaceInfoUpdateRequest;
 import com.xdq.springbootinit.model.entity.InterfaceInfo;
 import com.xdq.springbootinit.model.entity.User;
+import com.xdq.springbootinit.model.enums.InterfaceInfoStatusEnum;
 import com.xdq.springbootinit.service.InterfaceInfoService;
 import com.xdq.springbootinit.service.UserService;
+import com.xdq.xdqapiclientsdk.client.XdqApiClient;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**
- * 帖子接口
+ * 接口管理
  *
  * @author xdq
  * 
@@ -44,6 +43,9 @@ public class InterfaceInfoController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private XdqApiClient xdqApiClient;
 
     // region 增删改查
     /**
@@ -203,5 +205,85 @@ public class InterfaceInfoController {
         return ResultUtils.success(interfaceInfoPage);
     }
 
+    /**
+     * 发布
+     *
+     * @param idRequest
+     * @param request
+     * @return
+     * @Description: 声明该方法为一个HTTP POST请求处理方法，处理路径“/online”，用于发布接口
+     */
+    @PostMapping("/online")
+    @ApiOperation("发布接口")
+    @AuthCheck(mustRole = "admin")
+    public BaseResponse<Boolean> onlineInterfaceInfo(@RequestBody IdRequest idRequest,
+                                                     HttpServletRequest request) {
+        if (idRequest == null || idRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        // 1.校验接口是否存在
+        // 获取idRequest的id属性
+        Long id = idRequest.getId();
+        // 根据id查询接口信息数据
+        InterfaceInfo oldInterfaceInfo = interfaceInfoService.getById(id);
+
+        // 如果查询结果为空
+        if (oldInterfaceInfo == null){
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+
+        // 2.判断接口是否可以调用
+        com.xdq.xdqapiclientsdk.model.User user = new com.xdq.xdqapiclientsdk.model.User();
+        user.setUsername("test");
+        String userName = xdqApiClient.getUserNameByPost(user);
+
+        if (StringUtils.isBlank(userName)){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口验证失败");
+        }
+
+        // 3.修改接口状态为上线
+        InterfaceInfo interfaceInfo = new InterfaceInfo();
+        interfaceInfo.setId(id);
+        interfaceInfo.setStatus(InterfaceInfoStatusEnum.ONLINE.getValue());
+
+        boolean result = interfaceInfoService.updateById(interfaceInfo);
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 下线
+     * @param idRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/offline")
+    @ApiOperation("下线接口")
+    @AuthCheck(mustRole = "admin")
+    public BaseResponse<Boolean> offlineInterfaceInfo(@RequestBody IdRequest idRequest,
+                                                     HttpServletRequest request) {
+        if (idRequest == null || idRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        // 1.校验接口是否存在
+        // 获取idRequest的id属性
+        Long id = idRequest.getId();
+        // 根据id查询接口信息数据
+        InterfaceInfo oldInterfaceInfo = interfaceInfoService.getById(id);
+
+        // 如果查询结果为空
+        if (oldInterfaceInfo == null){
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+
+        // 2.修改接口状态为上线
+        InterfaceInfo interfaceInfo = new InterfaceInfo();
+        interfaceInfo.setId(id);
+        interfaceInfo.setStatus(InterfaceInfoStatusEnum.OFFLINE.getValue());
+
+        boolean result = interfaceInfoService.updateById(interfaceInfo);
+        return ResultUtils.success(result);
+    }
 
 }
