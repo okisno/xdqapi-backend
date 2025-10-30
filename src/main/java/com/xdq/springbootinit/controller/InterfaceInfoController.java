@@ -2,11 +2,13 @@ package com.xdq.springbootinit.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.google.gson.Gson;
 import com.xdq.springbootinit.annotation.AuthCheck;
 import com.xdq.springbootinit.common.*;
 import com.xdq.springbootinit.constant.CommonConstant;
 import com.xdq.springbootinit.exception.BusinessException;
 import com.xdq.springbootinit.model.dto.interfaceInfo.InterfaceInfoAddRequest;
+import com.xdq.springbootinit.model.dto.interfaceInfo.InterfaceInfoInvokeRequest;
 import com.xdq.springbootinit.model.dto.interfaceInfo.InterfaceInfoQueryRequest;
 import com.xdq.springbootinit.model.dto.interfaceInfo.InterfaceInfoUpdateRequest;
 import com.xdq.springbootinit.model.entity.InterfaceInfo;
@@ -284,6 +286,49 @@ public class InterfaceInfoController {
 
         boolean result = interfaceInfoService.updateById(interfaceInfo);
         return ResultUtils.success(result);
+    }
+
+    /**
+     * 测试调用
+     * @param interfaceInfoInvokeRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/invoke")
+    @ApiOperation("在线调用接口")
+    public BaseResponse<Object> invokeInterfaceInfo(@RequestBody InterfaceInfoInvokeRequest interfaceInfoInvokeRequest,
+                                                      HttpServletRequest request) {
+        if (interfaceInfoInvokeRequest == null || interfaceInfoInvokeRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        // 获取接口id
+        Long id = interfaceInfoInvokeRequest.getId();
+        // 获取请求参数
+        String userRequestParams = interfaceInfoInvokeRequest.getUserRequestParams();
+        // 根据id查询接口信息数据
+        InterfaceInfo oldInterfaceInfo = interfaceInfoService.getById(id);
+
+        // 如果查询结果为空
+        if (oldInterfaceInfo == null){
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+
+        // 2.检查接口状态是否为下线状态
+        if (oldInterfaceInfo.getStatus() == InterfaceInfoStatusEnum.OFFLINE.getValue()){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "接口已关闭");
+        }
+
+        // 获取当前登录用户的ak和sk
+        User loginUser = userService.getLoginUser(request);
+        String accessKey = loginUser.getAccessKey();
+        String secretKey = loginUser.getSecretKey();
+
+        XdqApiClient tempClient = new XdqApiClient(accessKey, secretKey);
+        Gson gson = new Gson();
+        com.xdq.xdqapiclientsdk.model.User user = gson.fromJson(userRequestParams, com.xdq.xdqapiclientsdk.model.User.class);
+        String userNameByPost = tempClient.getUserNameByPost(user);
+        return ResultUtils.success(userNameByPost);
     }
 
 }
